@@ -1,16 +1,13 @@
-import sys
 import numpy as np
-import os
 import pandas as pd
 from os.path import exists
 from nibabel.freesurfer.io import read_morph_data, read_annot
 from nibabel.freesurfer.mghformat import load
 from collections import defaultdict
-from MIND_helpers import calculate_mind_network, is_outlier
+
 
 def get_vertex_df(surf_dir, features, parcellation):
-
-    '''
+    """
     INPUT SPECIFICATIONS:
     • surf_dir (str) : This is a string the location containing all relevant directories output by FreeSurfer (i.e. label, mri, surf).
 
@@ -41,29 +38,30 @@ def get_vertex_df(surf_dir, features, parcellation):
         A valid list of feature values combining these different input types would therefore be: ['CT','SD',(path/to/lh_feature1, path/to/rh_feature1), (path/to/lh_feature2, path/to/rh_feature2)] 
     
     • parcellation (str): This is a string the location containing parcellation scheme to be used. The files 'lh.' + parcellation + '.annot' and 'rh.' + parcellation + '.annot' must exist inside the surf_dir/label directory.
-    '''
+    """
 
-    #specify data locations
+    # specify data locations
     surfer_location = surf_dir + '/'
 
-    #Check inputs!
-    if (exists(surfer_location + '/label/lh.' + parcellation + '.annot') == False) or (exists(surfer_location + '/label/rh.' + parcellation + '.annot') == False):
+    # Check inputs!
+    if (not (exists(surfer_location + '/label/lh.' + parcellation + '.annot')) or
+            (not exists(surfer_location + '/label/rh.' + parcellation + '.annot'))):
         raise Exception('Parcellation files not found.')
 
-    all_shorthand_features = ['CT','Vol','SA','MC','SD']
-    all_shorthand_features_dict = dict(zip(all_shorthand_features, ['thickness','volume','area','curv','sulc']))
-    
+    all_shorthand_features = ['CT', 'Vol', 'SA', 'MC', 'SD']
+    all_shorthand_features_dict = dict(zip(all_shorthand_features, ['thickness', 'volume', 'area', 'curv', 'sulc']))
+
     lh_feature_locs = []
     rh_feature_locs = []
 
-    #Check feature inputs, store location of files
+    # Check feature inputs, store location of files
     for feature in features:
         if feature in all_shorthand_features:
             lh_loc = surfer_location + 'surf/lh.' + all_shorthand_features_dict[feature]
             rh_loc = surfer_location + 'surf/rh.' + all_shorthand_features_dict[feature]
-            
-            if (exists(lh_loc) == False) or (exists(rh_loc) == False):
-                raise Exception('Feature for input "' + feature +'" not found.')
+
+            if (not exists(lh_loc)) or (not exists(rh_loc)):
+                raise Exception('Feature for input "' + feature + '" not found.')
             else:
                 lh_feature_locs.append(lh_loc)
                 rh_feature_locs.append(rh_loc)
@@ -73,9 +71,9 @@ def get_vertex_df(surf_dir, features, parcellation):
             if len(feature.split('/')) == 1:
                 lh_loc = surfer_location + 'surf/lh.' + feature
                 rh_loc = surfer_location + 'surf/rh.' + feature
-                
-                if (exists(lh_loc) == False) or (exists(rh_loc) == False):
-                    raise Exception('Feature for input "' + feature +'" not found.')
+
+                if (not exists(lh_loc)) or (not exists(rh_loc)):
+                    raise Exception('Feature for input "' + feature + '" not found.')
 
                 else:
                     lh_feature_locs.append(lh_loc)
@@ -89,9 +87,9 @@ def get_vertex_df(surf_dir, features, parcellation):
                 rh_loc = feature.split('/')
                 rh_loc[-1] = 'r' + rh_loc[-1][1:]
                 rh_loc = '/'.join(rh_loc)
-                
-                if (exists(lh_loc) == False) or (exists(rh_loc) == False):
-                    raise Exception('Feature for input "' + feature +'" not found.')
+
+                if (not exists(lh_loc)) or (not exists(rh_loc)):
+                    raise Exception('Feature for input "' + feature + '" not found.')
 
                 else:
                     lh_feature_locs.append(lh_loc)
@@ -101,9 +99,9 @@ def get_vertex_df(surf_dir, features, parcellation):
 
             lh_loc = feature[0]
             rh_loc = feature[1]
-            
-            if (exists(lh_loc) == False) or (exists(rh_loc) == False):
-                raise Exception('Feature for input "' + feature[0] +'" or "' + feature[1] +'" not found.')
+
+            if (not exists(lh_loc)) or (not exists(rh_loc)):
+                raise Exception('Feature for input "' + feature[0] + '" or "' + feature[1] + '" not found.')
 
             else:
                 lh_feature_locs.append(lh_loc)
@@ -112,11 +110,11 @@ def get_vertex_df(surf_dir, features, parcellation):
         else:
             raise Exception('Unrecognized format for feature input: ', feature)
 
-    #Get annotation files
-    lh_annot = read_annot(surfer_location + '/label/lh.' + parcellation + '.annot', orig_ids = True)
-    rh_annot = read_annot(surfer_location + '/label/rh.' + parcellation + '.annot', orig_ids = True)
+    # Get annotation files
+    lh_annot = read_annot(surfer_location + '/label/lh.' + parcellation + '.annot', orig_ids=True)
+    rh_annot = read_annot(surfer_location + '/label/rh.' + parcellation + '.annot', orig_ids=True)
 
-    annot_dict = {'lh':lh_annot, 'rh':rh_annot}
+    annot_dict = {'lh': lh_annot, 'rh': rh_annot}
 
     '''
     The regions in the lh and rh need to be renamed and distinct. 
@@ -129,30 +127,30 @@ def get_vertex_df(surf_dir, features, parcellation):
     lh_region_names = ['lh_' + str(x).split("'")[1] for x in lh_annot[2]]
     rh_region_names = ['rh_' + str(x).split("'")[1] for x in rh_annot[2]]
 
-    lh_convert_dict = dict(zip(lh_annot[1][:,-1], lh_region_names))
-    rh_convert_dict = dict(zip(rh_annot[1][:,-1], rh_region_names))
+    lh_convert_dict = dict(zip(lh_annot[1][:, -1], lh_region_names))
+    rh_convert_dict = dict(zip(rh_annot[1][:, -1], rh_region_names))
 
-    convert_dicts = {'lh': lh_convert_dict,\
-                    'rh': rh_convert_dict}
+    convert_dicts = {'lh': lh_convert_dict,
+                     'rh': rh_convert_dict}
 
     used_labels_l = np.intersect1d(np.unique(lh_annot[0]), list(lh_convert_dict.keys()))
     used_labels_r = np.intersect1d(np.unique(rh_annot[0]), list(rh_convert_dict.keys()))
 
-    used_labels = {'lh': used_labels_l,\
-                    'rh': used_labels_r}
-
+    used_labels = {'lh': used_labels_l,
+                   'rh': used_labels_r}
 
     used_regions_l = np.array([value for key, value in lh_convert_dict.items() if key in used_labels_l])
     used_regions_r = np.array([value for key, value in rh_convert_dict.items() if key in used_labels_r])
 
     combined_regions = np.hstack((used_regions_l, used_regions_r))
-    unknown_regions = [x for x in combined_regions if (('?' in x) | ('unknown' in x) | ('Unknown' in x) | ('Medial_Wall' in x) | (len(x) == 3))]
+    unknown_regions = [x for x in combined_regions if
+                       (('?' in x) | ('unknown' in x) | ('Unknown' in x) | ('Medial_Wall' in x) | (len(x) == 3))]
     combined_regions = np.array([x for x in combined_regions if x not in unknown_regions])
 
     vertex_data_dict = defaultdict()
 
-    #Now load up all the vertex-level data!
-    for hemi in ['lh','rh']:
+    # Now load up all the vertex-level data!
+    for hemi in ['lh', 'rh']:
         print(hemi)
         hemi_data_dict = defaultdict()
 
@@ -161,7 +159,7 @@ def get_vertex_df(surf_dir, features, parcellation):
 
             for i, lh_feature_loc in enumerate(lh_feature_locs):
                 print(lh_feature_loc)
-                #check for mgh/mgz format vs regular curv files
+                # check for mgh/mgz format vs regular curv files
                 if lh_feature_loc.endswith('mgh') or lh_feature_loc.endswith('mgz'):
                     hemi_data_dict['Feature_' + str(i)] = load(lh_feature_loc).get_fdata().flatten()
                 else:
@@ -185,19 +183,19 @@ def get_vertex_df(surf_dir, features, parcellation):
         for i, feature in enumerate(used_features):
             print(i, feature)
             hemi_data[i + 1] = hemi_data_dict[feature]
-        
+
         col_names = ['Label'] + used_features
-        hemi_data = pd.DataFrame(hemi_data.T, columns = col_names)
-        
-        #Select only the vertices that map to regions.
+        hemi_data = pd.DataFrame(hemi_data.T, columns=col_names)
+
+        # Select only the vertices that map to regions.
         hemi_data = hemi_data.loc[hemi_data['Label'].isin(used_labels[hemi])]
-        
+
         hemi_data["Label"] = hemi_data["Label"].map(convert_dicts[hemi])
         vertex_data_dict[hemi] = hemi_data
 
-    vertex_data = pd.concat([vertex_data_dict['lh'], vertex_data_dict['rh']], ignore_index = True)
+    vertex_data = pd.concat([vertex_data_dict['lh'], vertex_data_dict['rh']], ignore_index=True)
 
-    #Output data
+    # Output data
     print("features used: ")
     print(used_features)
     return vertex_data, combined_regions, used_features
